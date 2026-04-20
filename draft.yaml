@@ -1,0 +1,160 @@
+models:
+  # ─────────────────────────────────────────
+  # MÓDULO 1 — IDENTIDAD Y ACCESO
+  # ─────────────────────────────────────────
+
+  User:
+    name: string
+    email: string unique
+    azure_id: nullable string unique
+    user_type: nullable string # Estudiante, Docente, Administrativo
+    is_active: boolean default:true
+    remember_token: nullable string:100
+    relationships:
+      hasOne: UserProfile
+      belongsToMany: Campus # Pivote automático para alcance de técnicos
+      hasMany: Ticket, TicketComment, TicketAttachment, TicketHistory
+
+  UserProfile:
+    user_id: id:user
+    phone: nullable string
+    age: nullable integer
+    gender: nullable string
+    sex: nullable string
+    vulnerable_group: nullable string
+    relationships:
+      belongsTo: User
+
+  # ─────────────────────────────────────────
+  # MÓDULO 2 — CATÁLOGOS INSTITUCIONALES (UQROO)
+  # ─────────────────────────────────────────
+
+  Campus:
+    name: string
+    relationships:
+      hasMany: Building, AcademicDivision, TicketInfraDetail
+      belongsToMany: User
+
+  AcademicDivision:
+    campus_id: id:campus
+    name: string
+    acronym: nullable string
+    relationships:
+      belongsTo: Campus
+      hasMany: EducationalProgram
+
+  EducationalProgram:
+    division_id: id:academic_division
+    name: string
+    relationships:
+      belongsTo: AcademicDivision
+
+  Department:
+    name: string
+    relationships:
+      hasMany: TicketSgcDetail
+
+  Building:
+    campus_id: id:campus
+    name: string
+    relationships:
+      belongsTo: Campus
+      hasMany: Location, TicketInfraDetail
+
+  Location:
+    building_id: id:building
+    name: string
+    type: nullable string # Baño, Aula, Pasillo
+    relationships:
+      belongsTo: Building
+      hasMany: TicketInfraDetail
+
+  Status:
+    name: string
+    color: string
+    is_closed: boolean default:false
+    relationships:
+      hasMany: Ticket
+
+  # ─────────────────────────────────────────
+  # MÓDULO 3 — TICKET CENTRAL (LA SOLICITUD)
+  # ─────────────────────────────────────────
+
+  Ticket:
+    folio: string unique
+    reporter_id: id:user
+    ticket_group: enum:SGC,GENERO,INFRAESTRUCTURA
+    status_id: id:status
+    relationships:
+      belongsTo: User, Status
+      hasOne: TicketSgcDetail, TicketInfraDetail, TicketGenderDetail
+      hasMany: TicketComment, TicketAttachment, TicketHistory
+
+  # ─────────────────────────────────────────
+  # MÓDULO 4 — SATÉLITES (DETALLES DEPENDIENDO DEL SELECT)
+  # ─────────────────────────────────────────
+
+  TicketSgcDetail:
+    ticket_id: id:ticket
+    classification: string # Queja, Sugerencia, Felicitación
+    department_id: nullable id:department
+    description: longtext
+    relationships:
+      belongsTo: Ticket, Department
+
+  TicketInfraDetail:
+    ticket_id: id:ticket
+    campus_id: id:campus
+    building_id: id:building
+    location_id: nullable id:location
+    issue_type: string # Falla Red, Limpieza, Mantenimiento
+    missing_supplies: nullable json
+    description: nullable longtext
+    relationships:
+      belongsTo: Ticket, Campus, Building, Location
+
+  TicketGenderDetail:
+    ticket_id: id:ticket
+    manifestation_type: string # Violencia, Acoso, Discriminación
+    reported_person_name: nullable string
+    reported_person_type: nullable string
+    chronological_narrative: longtext
+    extended_narrative: nullable longtext
+    has_evidence: boolean default:false
+    witnesses_details: nullable longtext
+    needs_psychological_support: boolean default:false
+    communicated_to: nullable json
+    communication_results: nullable longtext
+    relationships:
+      belongsTo: Ticket
+
+  # ─────────────────────────────────────────
+  # MÓDULO 5 — SEGUIMIENTO Y AUDITORÍA
+  # ─────────────────────────────────────────
+
+  TicketComment:
+    ticket_id: id:ticket
+    user_id: id:user
+    body: longtext
+    is_internal: boolean default:false
+    relationships:
+      belongsTo: Ticket, User
+      hasMany: TicketAttachment
+
+  TicketAttachment:
+    ticket_id: id:ticket
+    comment_id: nullable id:ticket_comment
+    user_id: id:user
+    file_path: string
+    file_name: string
+    relationships:
+      belongsTo: Ticket, TicketComment, User
+
+  TicketHistory:
+    ticket_id: id:ticket
+    user_id: id:user
+    action: string
+    old_value: nullable string
+    new_value: nullable string
+    relationships:
+      belongsTo: Ticket, User

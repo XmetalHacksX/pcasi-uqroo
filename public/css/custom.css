@@ -1,0 +1,38 @@
+/* public/css/custom.css */
+
+/* 1. Sidebar Verde */
+aside.fi-sidebar {
+    background-color: #054c31 !important;
+}
+
+/* 2. Arreglar el Logo y Nombre para que NO se encimen */
+.fi-sidebar-header {
+    background-color: #054c31 !important;
+    padding-top: 1.5rem !important;
+    padding-bottom: 1.5rem !important;
+}
+
+/* 3. Forzar el texto del nombre a ser blanco y estar a la derecha del logo */
+.fi-logo {
+    color: white !important;
+    font-size: 1.1rem !important;
+    font-weight: bold !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+/* 4. Si el nombre aparece en la barra superior BLANCA, pintarlo de negro 
+   para que no sea invisible, o de verde UQROO */
+.fi-topbar .fi-logo,
+.fi-topbar .fi-brand-name {
+    color: #054c31 !important;
+}
+
+/* 5. El ítem activo (Dashboard) */
+aside.fi-sidebar .fi-active > .fi-sidebar-item-btn {
+    background-color: #e7bc13 !important;
+}
+aside.fi-sidebar .fi-active > .fi-sidebar-item-btn * {
+    color: #054c31 !important;
+}

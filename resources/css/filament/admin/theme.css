@@ -1,0 +1,112 @@
+@import "../../../../vendor/filament/filament/resources/css/theme.css";
+
+@source '../../../../app/Filament/**/*';
+@source '../../../../resources/views/filament/**/*';
+
+@source '../../../../vendor/diogogpinto/filament-auth-ui-enhancer/resources/**/*.blade.php';
+
+@theme {
+    --color-uqroo-verde: #054c31;
+    --color-uqroo-amarillo: #e7bc13;
+}
+
+/* 1. Fondo del Sidebar y Cabecera */
+.fi-sidebar,
+.fi-sidebar-header {
+    background-color: var(--color-uqroo-verde) !important;
+}
+
+/* 2. Textos e iconos normales del MENÚ en BLANCO */
+.fi-sidebar-item-label,
+.fi-sidebar-item-icon,
+.fi-sidebar-group-label {
+    color: #ffffff !important;
+}
+
+/* 3. ITEM SELECCIONADO (Fondo Amarillo, Letras Verdes) */
+.fi-sidebar-item.fi-active .fi-sidebar-item-btn {
+    background-color: var(--color-uqroo-amarillo) !important;
+}
+
+.fi-sidebar-item.fi-active .fi-sidebar-item-btn .fi-sidebar-item-label,
+.fi-sidebar-item.fi-active .fi-sidebar-item-btn .fi-sidebar-item-icon {
+    color: var(--color-uqroo-verde) !important;
+    font-weight: 800 !important;
+}
+
+/* 4. Efecto hover */
+.fi-sidebar-item-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* --- CORRECCIÓN LOGO DINÁMICO (Negro en PC Claro, Blanco en Móvil/Oscuro) --- */
+
+/* Color por defecto para pantallas GRANDES (Escritorio) */
+.fi-sidebar-header .fi-logo,
+.fi-sidebar-header .fi-brand-name,
+.fi-sidebar-header div,
+.fi-sidebar-header span {
+    color: #000000 !important; /* Negro en modo claro de escritorio */
+    transition: color 0.3s ease;
+}
+
+/* Ajuste para modo OSCURO en PC: Todo el texto del header debe ser BLANCO */
+.dark .fi-sidebar-header .fi-logo,
+.dark .fi-sidebar-header .fi-brand-name,
+.dark .fi-sidebar-header div,
+.dark .fi-sidebar-header span {
+    color: #ffffff !important;
+}
+
+/* Cambio a BLANCO para pantallas CHICAS (Móvil/Tablet), tanto en claro como oscuro */
+@media (max-width: 1024px) {
+    .fi-sidebar-header .fi-logo,
+    .fi-sidebar-header .fi-brand-name,
+    .fi-sidebar-header div,
+    .fi-sidebar-header span {
+        color: #ffffff !important;
+    }
+}
+
+/* Por defecto (Móvil/Tablet) - Nombre corto */
+.fi-sidebar-header .fi-brand-name::before {
+    content: "PCASI - UQROO";
+}
+.fi-sidebar-header .fi-brand-name {
+    font-size: 0px !important; /* Oculta el texto original */
+}
+.fi-sidebar-header .fi-brand-name::before {
+    font-size: 1.25rem !important; /* Muestra solo el acrónimo */
+    font-weight: bold;
+    color: white;
+}
+
+/* En Escritorio (PC) - Nombre completo ajustado */
+@media (min-width: 1024px) {
+    .fi-sidebar-header .fi-brand-name::before {
+        content: "Plataforma Centralizada de Atención y Seguimiento Institucional";
+        font-size: 0.85rem !important;
+    }
+}
+
+/* 1. Ocultar el texto de "Entre a su cuenta" */
+h1.fi-simple-header-heading {
+    display: none !important;
+}
+
+/* 2. Hacer el logo gigante solo en el login y empujar el formulario */
+.custom-auth-form-wrapper .fi-logo {
+    height: 20rem !important; /* Qué tan grande quieres el logo */
+    margin-bottom: 2rem !important; /* Espacio para que NO choque con el correo */
+    display: flex;
+    justify-content: center;
+}
+
+.custom-auth-form-wrapper .fi-logo img {
+    height: 100% !important;
+    width: auto !important;
+}
+/* Desaparecer el texto debajo del logo */
+h1.fi-simple-header-heading {
+    display: none !important;
+}

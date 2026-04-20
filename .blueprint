@@ -1,0 +1,67 @@
+created:
+    - database/factories/UserFactory.php
+    - database/factories/UserProfileFactory.php
+    - database/factories/CampusFactory.php
+    - database/factories/AcademicDivisionFactory.php
+    - database/factories/EducationalProgramFactory.php
+    - database/factories/DepartmentFactory.php
+    - database/factories/BuildingFactory.php
+    - database/factories/LocationFactory.php
+    - database/factories/StatusFactory.php
+    - database/factories/TicketFactory.php
+    - database/factories/TicketSgcDetailFactory.php
+    - database/factories/TicketInfraDetailFactory.php
+    - database/factories/TicketGenderDetailFactory.php
+    - database/factories/TicketCommentFactory.php
+    - database/factories/TicketAttachmentFactory.php
+    - database/factories/TicketHistoryFactory.php
+    - database/migrations/2026_03_10_212407_create_users_table.php
+    - database/migrations/2026_03_10_212408_create_user_profiles_table.php
+    - database/migrations/2026_03_10_212409_create_campuses_table.php
+    - database/migrations/2026_03_10_212410_create_academic_divisions_table.php
+    - database/migrations/2026_03_10_212411_create_educational_programs_table.php
+    - database/migrations/2026_03_10_212412_create_departments_table.php
+    - database/migrations/2026_03_10_212413_create_buildings_table.php
+    - database/migrations/2026_03_10_212414_create_locations_table.php
+    - database/migrations/2026_03_10_212415_create_statuses_table.php
+    - database/migrations/2026_03_10_212416_create_tickets_table.php
+    - database/migrations/2026_03_10_212417_create_ticket_sgc_details_table.php
+    - database/migrations/2026_03_10_212418_create_ticket_infra_details_table.php
+    - database/migrations/2026_03_10_212419_create_ticket_gender_details_table.php
+    - database/migrations/2026_03_10_212420_create_ticket_comments_table.php
+    - database/migrations/2026_03_10_212421_create_ticket_attachments_table.php
+    - database/migrations/2026_03_10_212422_create_ticket_histories_table.php
+    - database/migrations/2026_03_10_212423_create_campus_user_table.php
+    - app/Models/User.php
+    - app/Models/UserProfile.php
+    - app/Models/Campus.php
+    - app/Models/AcademicDivision.php
+    - app/Models/EducationalProgram.php
+    - app/Models/Department.php
+    - app/Models/Building.php
+    - app/Models/Location.php
+    - app/Models/Status.php
+    - app/Models/Ticket.php
+    - app/Models/TicketSgcDetail.php
+    - app/Models/TicketInfraDetail.php
+    - app/Models/TicketGenderDetail.php
+    - app/Models/TicketComment.php
+    - app/Models/TicketAttachment.php
+    - app/Models/TicketHistory.php
+models:
+    User: { name: string, email: 'string unique', azure_id: 'nullable string unique', user_type: 'nullable string', is_active: 'boolean default:true', remember_token: 'nullable string:100', relationships: { hasOne: UserProfile, belongsToMany: Campus, hasMany: 'Ticket, TicketComment, TicketAttachment, TicketHistory' } }
+    UserProfile: { user_id: 'id:user', phone: 'nullable string', age: 'nullable integer', gender: 'nullable string', sex: 'nullable string', vulnerable_group: 'nullable string', relationships: { belongsTo: User } }
+    Campus: { name: string, relationships: { hasMany: 'Building, AcademicDivision, TicketInfraDetail', belongsToMany: User } }
+    AcademicDivision: { campus_id: 'id:campus', name: string, acronym: 'nullable string', relationships: { belongsTo: Campus, hasMany: EducationalProgram } }
+    EducationalProgram: { division_id: 'id:academic_division', name: string, relationships: { belongsTo: AcademicDivision } }
+    Department: { name: string, relationships: { hasMany: TicketSgcDetail } }
+    Building: { campus_id: 'id:campus', name: string, relationships: { belongsTo: Campus, hasMany: 'Location, TicketInfraDetail' } }
+    Location: { building_id: 'id:building', name: string, type: 'nullable string', relationships: { belongsTo: Building, hasMany: TicketInfraDetail } }
+    Status: { name: string, color: string, is_closed: 'boolean default:false', relationships: { hasMany: Ticket } }
+    Ticket: { folio: 'string unique', reporter_id: 'id:user', ticket_group: 'enum:SGC,GENERO,INFRAESTRUCTURA', status_id: 'id:status', relationships: { belongsTo: 'User, Status', hasOne: 'TicketSgcDetail, TicketInfraDetail, TicketGenderDetail', hasMany: 'TicketComment, TicketAttachment, TicketHistory' } }
+    TicketSgcDetail: { ticket_id: 'id:ticket', classification: string, department_id: 'nullable id:department', description: longtext, relationships: { belongsTo: 'Ticket, Department' } }
+    TicketInfraDetail: { ticket_id: 'id:ticket', campus_id: 'id:campus', building_id: 'id:building', location_id: 'nullable id:location', issue_type: string, missing_supplies: 'nullable json', description: 'nullable longtext', relationships: { belongsTo: 'Ticket, Campus, Building, Location' } }
+    TicketGenderDetail: { ticket_id: 'id:ticket', manifestation_type: string, reported_person_name: 'nullable string', reported_person_type: 'nullable string', chronological_narrative: longtext, extended_narrative: 'nullable longtext', has_evidence: 'boolean default:false', witnesses_details: 'nullable longtext', needs_psychological_support: 'boolean default:false', communicated_to: 'nullable json', communication_results: 'nullable longtext', relationships: { belongsTo: Ticket } }
+    TicketComment: { ticket_id: 'id:ticket', user_id: 'id:user', body: longtext, is_internal: 'boolean default:false', relationships: { belongsTo: 'Ticket, User', hasMany: TicketAttachment } }
+    TicketAttachment: { ticket_id: 'id:ticket', comment_id: 'nullable id:ticket_comment', user_id: 'id:user', file_path: string, file_name: string, relationships: { belongsTo: 'Ticket, TicketComment, User' } }
+    TicketHistory: { ticket_id: 'id:ticket', user_id: 'id:user', action: string, old_value: 'nullable string', new_value: 'nullable string', relationships: { belongsTo: 'Ticket, User' } }
