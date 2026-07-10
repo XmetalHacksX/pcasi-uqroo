@@ -2,8 +2,6 @@
 
 namespace App\Filament\Resources\Tickets\Schemas;
 
-use App\Models\Building;
-use App\Models\Location;
 use App\Models\UserProfile;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -21,7 +19,6 @@ use Filament\Support\Exceptions\Halt;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\HtmlString;
-use Illuminate\Support\Str;
 use App\Enums\StatusEnum;
 
 class TicketForm
@@ -90,331 +87,21 @@ class TicketForm
                                 ->relationship('ticketSgcDetail')
                                 ->hidden(fn(Get $get) => $get('ticket_group') !== 'SGC')
                                 ->columns(2)
-                                ->schema([
-                                    TextInput::make('reported_person_name')
-                                        ->label('Nombre de la persona involucrada (Opcional)')
-                                        ->columnSpanFull(),
-
-                                    // 1. Selector de Tipo de Usuario
-                                    Select::make('user_type')
-                                        ->label('Tipo de Usuario')
-                                        ->options([
-                                            'administrativo' => 'Personal Administrativo',
-                                            'academico'      => 'Personal Académico',
-                                            'estudiante'     => 'Estudiante',
-                                        ])
-                                        ->required(fn(Get $get) => $get('../../ticket_group') === 'SGC')
-                                        ->live()
-                                        ->afterStateUpdated(fn($set) => $set('temp_campus_id', null) & $set('department_id', null) & $set('subdepartment_id', null) & $set('academic_division_id', null) & $set('educational_program_id', null)),
-
-                                    // 2. Elegimos el campus para filtrar correctamente
-                                    Select::make('temp_campus_id')
-                                        ->label('Campus')
-                                        ->options(function () {
-                                            $user = auth()->user();
-                                            if ($user && $user->campuses()->exists()) {
-                                                return $user->campuses->pluck('name', 'id');
-                                            }
-                                            return \App\Models\Campus::pluck('name', 'id');
-                                        })
-                                        ->visible(fn(Get $get) => filled($get('user_type')))
-                                        ->required(fn(Get $get) => filled($get('user_type')))
-                                        ->live()
-                                        ->dehydrated(false) // No se guarda en BD, solo sirve para filtrar
-                                        ->afterStateUpdated(fn($set) => $set('department_id', null) & $set('subdepartment_id', null) & $set('academic_division_id', null) & $set('educational_program_id', null)),
-
-                                    // --- FLUJO ADMINISTRATIVO ---
-                                    Select::make('department_id')
-                                        ->label('Dirección General')
-                                        ->options(fn(Get $get) => \App\Models\Department::where('id', '<=', 11)->pluck('name', 'id'))
-                                        ->visible(fn(Get $get) => $get('user_type') === 'administrativo' && $get('temp_campus_id'))
-                                        ->required(fn(Get $get) => $get('user_type') === 'administrativo')
-                                        ->live()
-                                        ->afterStateUpdated(fn($set) => $set('subdepartment_id', null))
-                                        ->searchable()
-                                        ->preload(),
-
-                                    Select::make('subdepartment_id')
-                                        ->label('Departamento / Oficina')
-                                        ->options(fn(Get $get) => \App\Models\Subdepartment::where('department_id', $get('department_id'))->pluck('name', 'id'))
-                                        ->visible(fn(Get $get) => $get('user_type') === 'administrativo' && $get('department_id'))
-                                        ->required(fn(Get $get) => $get('user_type') === 'administrativo')
-                                        ->searchable()
-                                        ->preload(),
-
-                                    // --- FLUJO ACADÉMICO ---
-                                    Select::make('academic_division_id')
-                                        ->label('División Académica')
-                                        ->options(fn(Get $get) => \App\Models\AcademicDivision::where('campus_id', $get('temp_campus_id'))->pluck('name', 'id'))
-                                        ->visible(fn(Get $get) => $get('user_type') === 'academico' && $get('temp_campus_id'))
-                                        ->required(fn(Get $get) => $get('user_type') === 'academico')
-                                        ->live()
-                                        ->afterStateUpdated(fn($set) => $set('subdepartment_id', null))
-                                        ->searchable()
-                                        ->preload(),
-
-                                    Select::make('subdepartment_id')
-                                        ->label('Departamento Académico')
-                                        ->options(function (Get $get) {
-                                            $division = \App\Models\AcademicDivision::find($get('academic_division_id'));
-                                            if (!$division) return [];
-                                            $dept = \App\Models\Department::where('name', $division->name)->where('campus_id', $division->campus_id)->first();
-                                            if (!$dept) return [];
-                                            return \App\Models\Subdepartment::where('department_id', $dept->id)->pluck('name', 'id');
-                                        })
-                                        ->visible(fn(Get $get) => $get('user_type') === 'academico' && $get('academic_division_id'))
-                                        ->required(fn(Get $get) => $get('user_type') === 'academico')
-                                        ->searchable()
-                                        ->preload(),
-
-                                    // --- FLUJO ESTUDIANTE ---
-                                    Select::make('educational_program_id')
-                                        ->label('Carrera / Programa Educativo')
-                                        ->options(fn(Get $get) => \App\Models\EducationalProgram::whereHas('academicDivision', fn ($q) => $q->where('campus_id', $get('temp_campus_id')))->pluck('name', 'id'))
-                                        ->visible(fn(Get $get) => $get('user_type') === 'estudiante' && $get('temp_campus_id'))
-                                        ->required(fn(Get $get) => $get('user_type') === 'estudiante')
-                                        ->live()
-                                        ->afterStateUpdated(function ($state, $set) {
-                                            if ($state) {
-                                                $program = \App\Models\EducationalProgram::find($state);
-                                                $set('academic_division_id', $program?->academic_division_id);
-                                            } else {
-                                                $set('academic_division_id', null);
-                                            }
-                                        })
-                                        ->searchable()
-                                        ->preload(),
-
-                                    // --- CAMPOS ORIGINALES ---
-                                    Select::make('classification')
-                                        ->options([
-                                            'Queja'        => 'Queja',
-                                            'Sugerencia'   => 'Sugerencia',
-                                            'Felicitación' => 'Felicitación',
-                                        ])
-                                        ->required(fn(Get $get) => $get('../../ticket_group') === 'SGC')
-                                        ->columnSpanFull()
-                                        ->label('Los hechos corresponden a una:'),
-
-                                    Textarea::make('description')
-                                        ->required(fn(Get $get) => $get('../../ticket_group') === 'SGC')
-                                        ->rows(5)
-                                        ->columnSpanFull()
-                                        ->label('Descripción del Asunto'),
-                                ]),
+                                ->schema(fn() => self::buildFormFieldsForGroup('SGC')),
 
                             // ── GÉNERO ───────────────────────────────────
                             Section::make('Datos del Reporte de Género y Discriminación')
                                 ->relationship('ticketGenderDetail')
                                 ->hidden(fn(Get $get) => $get('ticket_group') !== 'GENERO')
                                 ->columns(2)
-                                ->schema([
-                                    Placeholder::make('_aviso_genero')
-                                        ->label('')
-                                        ->columnSpanFull()
-                                        ->content(new HtmlString(
-                                            '<div class="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">
-                                            <strong>🔒 Este reporte es estrictamente confidencial</strong><br>
-                                            Será atendido con la discreción y seriedad que el caso requiere.
-                                        </div>'
-                                        )),
-
-                                    TextInput::make('reported_person_name')
-                                        ->label('Nombre de la persona contra quien se presenta la queja')
-                                        ->required()
-                                        ->columnSpanFull(),
-
-                                    Select::make('reported_person_type')
-                                        ->options([
-                                            'academico' => 'Estudiante / Docente',
-                                            'administrativo' => 'Personal Administrativo',
-                                            'Externo' => 'Externo',
-                                        ])
-                                        ->label('Tipo de usuario de la persona responsable')
-                                        ->required()
-                                        ->live(),
-
-                                    // ─── EL DESGLOSE DINÁMICO EMPIEZA AQUÍ ───
-
-                                    // 1. Campus Base (Para ambos flujos)
-                                    Select::make('campus_id')
-                                        ->label('Campus de Adscripción')
-                                        ->options(function () {
-                                            $user = auth()->user();
-                                            if ($user && $user->campuses()->exists()) {
-                                                return $user->campuses->pluck('name', 'id');
-                                            }
-                                            return \App\Models\Campus::pluck('name', 'id');
-                                        })
-                                        ->required()
-                                        ->live()
-                                        ->dehydrated(fn (Get $get) => $get('reported_person_type') === 'Externo')
-                                        ->afterStateUpdated(fn($set) => $set('academic_division_id', null) & $set('department_id', null)),
-
-                                    // 2. Flujo Administrativo: Campus -> Área/Dirección -> Oficina
-                                    Select::make('department_id')
-                                        ->label('Área / Unidad Académica / Dirección General')
-                                        ->options(fn(Get $get) => \App\Models\Department::where('campus_id', $get('campus_id'))->pluck('name', 'id'))
-                                        ->visible(fn(Get $get) => $get('reported_person_type') === 'administrativo')
-                                        ->required(fn(Get $get) => $get('reported_person_type') === 'administrativo')
-                                        ->searchable()
-                                        ->preload()
-                                        ->live() // <-- ¡CRÍTICO para que aparezcan los subdepartamentos!
-                                        ->afterStateUpdated(fn($set) => $set('subdepartment_id', null)), // Limpia la oficina si cambias de dirección
-
-                                    Select::make('subdepartment_id')
-                                        ->label('Oficina / Subdepartamento (Opcional)')
-                                        ->options(fn(Get $get) => \App\Models\Subdepartment::where('department_id', $get('department_id'))->pluck('name', 'id'))
-                                        ->visible(fn(Get $get) => $get('reported_person_type') === 'administrativo' && $get('department_id'))
-                                        ->searchable()
-                                        ->preload(),
-
-                                    // 3. Flujo Académico: Campus -> División -> Carrera
-                                    Select::make('academic_division_id')
-                                        ->label('División Académica de Adscripción')
-                                        ->options(fn(Get $get) => \App\Models\AcademicDivision::where('campus_id', $get('campus_id'))->pluck('name', 'id'))
-                                        ->visible(fn(Get $get) => $get('reported_person_type') === 'academico')
-                                        ->required(fn(Get $get) => $get('reported_person_type') === 'academico')
-                                        ->live(),
-
-                                    Select::make('educational_program_id')
-                                        ->label('Programa Académico de Adscripción (Carrera)')
-                                        ->options(fn(Get $get) => \App\Models\EducationalProgram::where('academic_division_id', $get('academic_division_id'))->pluck('name', 'id'))
-                                        ->visible(fn(Get $get) => $get('reported_person_type') === 'academico' && $get('academic_division_id'))
-                                        ->required(fn(Get $get) => $get('reported_person_type') === 'academico'),
-
-                                    // Dato extra: El cargo de la persona (Ya que quitamos "oficina" de aquí)
-                                    // NOTA: Asegúrate de tener esta columna en tu base de datos (yo no la vi en tu dump), 
-                                    // si no la tienes, simplemente borra este TextInput o Filament marcará error al guardar.
-                                    // ─── AQUÍ SIGUE TU CÓDIGO ORIGINAL SIN CAMBIOS ───
-
-                                    TextInput::make('reported_person_details')
-                                        ->label('Datos institucionales adicionales (Cargo, Oficina, etc.)')
-                                        ->placeholder('Escriba el cargo o detalles específicos...')
-                                        ->columnSpanFull(),
-
-                                    Select::make('manifestation_type')
-                                        ->options([
-                                            'Violencia de género' => 'Violencia de género',
-                                            'Acoso' => 'Acoso / Hostigamiento',
-                                            'Discriminación' => 'Discriminación',
-                                        ])
-                                        ->required(fn(Get $get) => $get('../../ticket_group') === 'GENERO')
-                                        ->columnSpanFull()
-                                        ->label('¿De qué forma se manifestó el hecho?'),
-
-                                    Textarea::make('chronological_narrative')
-                                        ->required(fn(Get $get) => $get('../../ticket_group') === 'GENERO')
-                                        ->rows(5)
-                                        ->columnSpanFull()
-                                        ->label('Narración cronológica de los hechos (tiempo, modo y lugar)'),
-
-                                    Toggle::make('has_evidence')
-                                        ->label('¿Cuenta con pruebas o evidencias?')
-                                        ->inline(false),
-
-                                    Select::make('witnesses')
-                                        ->options(['si' => 'Sí hubo testigos', 'no' => 'Nadie los presenció'])
-                                        ->live()
-                                        ->label('¿Hubo testigos?'),
-
-                                    Textarea::make('witnesses_details')
-                                        ->rows(2)
-                                        ->columnSpanFull()
-                                        ->hidden(fn(Get $get) => $get('witnesses') !== 'si')
-                                        ->label('Nombre y datos de contacto de los testigos'),
-
-                                    Toggle::make('needs_psychological_support')
-                                        ->label('¿Considera necesario acompañamiento profesional?')
-                                        ->inline(false),
-
-                                    Toggle::make('has_communicated')
-                                        ->label('¿Has reportado este incidente previamente a alguna autoridad de la universidad?')
-                                        ->inline(false)
-                                        ->live()
-                                        ->dehydrated(false),
-
-                                    Select::make('communicated_to')
-                                        ->multiple()
-                                        ->options([
-                                            'Tutor(a)'                   => 'Tutor(a)',
-                                            'Docente'                    => 'Docente',
-                                            'Jefe(a) de Departamento'    => 'Jefe(a) de Departamento',
-                                            'Director(a) de División'    => 'Director(a) de División',
-                                            'Recursos Humanos'           => 'Recursos Humanos',
-                                            'Abogado General'            => 'Abogado General',
-                                            'Otro'                       => 'Otro',
-                                        ])
-                                        ->label('Comuniqué estos hechos a:')
-                                        ->visible(fn(Get $get) => $get('has_communicated')),
-
-                                    Textarea::make('communication_results')
-                                        ->rows(2)
-                                        ->columnSpanFull()
-                                        ->label('Resultado de la comunicación (opcional)')
-                                        ->visible(fn(Get $get) => $get('has_communicated')),
-                                ]),
+                                ->schema(fn() => self::buildFormFieldsForGroup('GENERO')),
 
                             // ── INFRAESTRUCTURA ──────────────────────────
                             Section::make('Detalles de Infraestructura')
                                 ->relationship('ticketInfraDetail')
                                 ->hidden(fn(Get $get) => $get('ticket_group') !== 'INFRAESTRUCTURA')
                                 ->columns(2)
-                                ->schema([
-
-                                    // 1️⃣ Campus — muestra todos, activa la cadena
-                                    Select::make('campus_id')
-                                        ->relationship('campus', 'name', function (\Illuminate\Database\Eloquent\Builder $query) {
-                                            $user = auth()->user();
-                                            if ($user && $user->campuses()->exists()) {
-                                                $query->whereIn('campuses.id', $user->campuses->pluck('id'));
-                                            }
-                                        })
-                                        ->required(fn(Get $get) => $get('../../ticket_group') === 'INFRAESTRUCTURA')
-                                        ->live() // ✅ dispara la actualización de edificio
-                                        ->afterStateUpdated(fn(callable $set) => $set('building_id', null) & $set('location_id', null))
-                                        ->label('Campus'),
-
-                                    // 2️⃣ Edificio — filtrado por campus seleccionado
-                                    Select::make('building_id')
-                                        ->required(fn(Get $get) => $get('../../ticket_group') === 'INFRAESTRUCTURA')
-                                        ->live() // ✅ dispara la actualización de ubicación
-                                        ->disabled(fn(Get $get) => !$get('campus_id'))
-                                        ->afterStateUpdated(fn(callable $set) => $set('location_id', null))
-                                        ->options(
-                                            fn(Get $get) =>
-                                            Building::where('campus_id', $get('campus_id'))
-                                                ->pluck('name', 'id')
-                                        )
-                                        ->label('Edificio'),
-
-                                    // 3️⃣ Ubicación — filtrada por edificio seleccionado
-                                    Select::make('location_id')
-                                        ->disabled(fn(Get $get) => !$get('building_id'))
-                                        ->options(
-                                            fn(Get $get) =>
-                                            Location::where('building_id', $get('building_id'))
-                                                ->pluck('name', 'id')
-                                        )
-                                        ->label('Ubicación específica (aula, baño, pasillo...)'),
-
-                                    Select::make('issue_type')
-                                        ->options([
-                                            'Falla Red'     => 'Falla de Red / Internet',
-                                            'Limpieza'      => 'Limpieza',
-                                            'Mantenimiento' => 'Mantenimiento General',
-                                            'Electricidad'  => 'Electricidad / Iluminación',
-                                            'Otro'          => 'Otro',
-                                        ])
-                                        ->required(fn(Get $get) => $get('../../ticket_group') === 'INFRAESTRUCTURA')
-                                        ->label('Tipo de falla'),
-
-                                    Textarea::make('description')
-                                        ->required(fn(Get $get) => $get('../../ticket_group') === 'INFRAESTRUCTURA')
-                                        ->rows(5)
-                                        ->columnSpanFull()
-                                        ->label('Descripción detallada de la falla'),
-                                ]),
+                                ->schema(fn() => self::buildFormFieldsForGroup('INFRAESTRUCTURA')),
                         ]),
 
                 ])
@@ -426,5 +113,289 @@ class TicketForm
                 BLADE)))
                     ->columnSpanFull(),
             ]);
+    }
+
+    protected static function buildFormFieldsForGroup(string $groupName): array
+    {
+        $form = \App\Models\DynamicForm::where('name', $groupName)->first();
+        if (!$form) {
+            return [];
+        }
+
+        $components = [];
+
+        // Inyección de elementos fijos de diseño
+        if ($groupName === 'GENERO') {
+            $components[] = Placeholder::make('_aviso_genero')
+                ->label('')
+                ->columnSpanFull()
+                ->content(new HtmlString(
+                    '<div class="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">
+                    <strong>🔒 Este reporte es estrictamente confidencial</strong><br>
+                    Será atendido con la discreción y seriedad que el caso requiere.
+                </div>'
+                ));
+        }
+
+        // Obtener todos los campos activos ordenados de este formulario
+        $fields = \App\Models\DynamicFormField::whereHas('step', function ($q) use ($form) {
+                $q->where('dynamic_form_id', $form->id);
+            })
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
+
+        foreach ($fields as $field) {
+            $component = self::createFieldComponent($field);
+            if ($component) {
+                $components[] = $component;
+            }
+        }
+
+        return $components;
+    }
+
+    protected static function createFieldComponent(\App\Models\DynamicFormField $field)
+    {
+        $name = $field->name;
+
+        switch ($field->type) {
+            case 'text':
+                $component = TextInput::make($name);
+                break;
+
+            case 'textarea':
+                $component = Textarea::make($name)->rows(5)->columnSpanFull();
+                break;
+
+            case 'toggle':
+                $component = Toggle::make($name)->inline(false);
+                break;
+
+            case 'date':
+                $component = \Filament\Forms\Components\DatePicker::make($name);
+                break;
+
+            case 'select':
+                $component = Select::make($name)
+                    ->options($field->options ?? [])
+                    ->placeholder($field->placeholder ?? 'Selecciona una opción...')
+                    ->live();
+                break;
+
+            case 'select_multiple':
+                $component = Select::make($name)
+                    ->multiple()
+                    ->options($field->options ?? [])
+                    ->placeholder($field->placeholder ?? 'Selecciona una o varias...')
+                    ->live();
+                break;
+
+            // CAMPOS DE CATÁLOGO ESPECIALES
+            case 'select_user_type':
+                $component = Select::make($name)
+                    ->options([
+                        'administrativo' => 'Personal Administrativo',
+                        'academico'      => 'Personal Académico',
+                        'estudiante'     => 'Estudiante',
+                    ])
+                    ->live()
+                    ->afterStateUpdated(fn($set) => $set('temp_campus_id', null) & $set('department_id', null) & $set('subdepartment_id', null) & $set('academic_division_id', null) & $set('educational_program_id', null));
+                break;
+
+            case 'select_campus':
+                $component = Select::make($name)
+                    ->options(function () {
+                        $user = auth()->user();
+                        if ($user && $user->campuses()->exists()) {
+                            return $user->campuses->pluck('name', 'id');
+                        }
+                        return \App\Models\Campus::pluck('name', 'id');
+                    })
+                    ->live()
+                    ->afterStateUpdated(function (callable $set, $state) {
+                        $set('building_id', null);
+                        $set('location_id', null);
+                        $set('academic_division_id', null);
+                        $set('department_id', null);
+                    });
+                break;
+
+            case 'select_building':
+                $component = Select::make($name)
+                    ->live()
+                    ->disabled(fn(Get $get) => !$get('campus_id'))
+                    ->afterStateUpdated(fn(callable $set) => $set('location_id', null))
+                    ->options(
+                        fn(Get $get) =>
+                        \App\Models\Building::where('campus_id', $get('campus_id'))
+                            ->pluck('name', 'id')
+                    );
+                break;
+
+            case 'select_location':
+                $component = Select::make($name)
+                    ->disabled(fn(Get $get) => !$get('building_id'))
+                    ->options(
+                        fn(Get $get) =>
+                        \App\Models\Location::where('building_id', $get('building_id'))
+                            ->pluck('name', 'id')
+                    );
+                break;
+
+            case 'select_department':
+                $component = Select::make($name)
+                    ->options(function (Get $get) {
+                        if ($get('../../ticket_group') === 'SGC') {
+                            return \App\Models\Department::where('id', '<=', 11)->pluck('name', 'id');
+                        }
+                        $campusId = $get('campus_id');
+                        if (!$campusId) return [];
+                        return \App\Models\Department::where('campus_id', $campusId)->pluck('name', 'id');
+                    })
+                    ->visible(function (Get $get) {
+                        if ($get('../../ticket_group') === 'SGC') {
+                            return $get('user_type') === 'administrativo' && $get('temp_campus_id');
+                        }
+                        return $get('reported_person_type') === 'administrativo';
+                    })
+                    ->required(function (Get $get) {
+                        if ($get('../../ticket_group') === 'SGC') {
+                            return $get('user_type') === 'administrativo';
+                        }
+                        return $get('reported_person_type') === 'administrativo';
+                    })
+                    ->live()
+                    ->afterStateUpdated(fn($set) => $set('subdepartment_id', null))
+                    ->searchable()
+                    ->preload();
+                break;
+
+            case 'select_subdepartment':
+                $component = Select::make($name)
+                    ->options(function (Get $get) {
+                        if ($get('../../ticket_group') === 'SGC') {
+                            if ($get('user_type') === 'administrativo') {
+                                return \App\Models\Subdepartment::where('department_id', $get('department_id'))->pluck('name', 'id');
+                            }
+                            if ($get('user_type') === 'academico') {
+                                $division = \App\Models\AcademicDivision::find($get('academic_division_id'));
+                                if (!$division) return [];
+                                $dept = \App\Models\Department::where('name', $division->name)->where('campus_id', $division->campus_id)->first();
+                                if (!$dept) return [];
+                                return \App\Models\Subdepartment::where('department_id', $dept->id)->pluck('name', 'id');
+                            }
+                        }
+                        return \App\Models\Subdepartment::where('department_id', $get('department_id'))->pluck('name', 'id');
+                    })
+                    ->visible(function (Get $get) {
+                        if ($get('../../ticket_group') === 'SGC') {
+                            return ($get('user_type') === 'administrativo' && $get('department_id'))
+                                || ($get('user_type') === 'academico' && $get('academic_division_id'));
+                        }
+                        return $get('reported_person_type') === 'administrativo' && $get('department_id');
+                    })
+                    ->required(function (Get $get) {
+                        if ($get('../../ticket_group') === 'SGC') {
+                            return $get('user_type') === 'administrativo' || $get('user_type') === 'academico';
+                        }
+                        return false;
+                    })
+                    ->searchable()
+                    ->preload();
+                break;
+
+            case 'select_academic_division':
+                $component = Select::make($name)
+                    ->options(function (Get $get) {
+                        if ($get('../../ticket_group') === 'SGC') {
+                            return \App\Models\AcademicDivision::where('campus_id', $get('temp_campus_id'))->pluck('name', 'id');
+                        }
+                        return \App\Models\AcademicDivision::where('campus_id', $get('campus_id'))->pluck('name', 'id');
+                    })
+                    ->visible(function (Get $get) {
+                        if ($get('../../ticket_group') === 'SGC') {
+                            return $get('user_type') === 'academico' && $get('temp_campus_id');
+                        }
+                        return $get('reported_person_type') === 'academico';
+                    })
+                    ->required(function (Get $get) {
+                        if ($get('../../ticket_group') === 'SGC') {
+                            return $get('user_type') === 'academico';
+                        }
+                        return $get('reported_person_type') === 'academico';
+                    })
+                    ->live()
+                    ->afterStateUpdated(fn($set) => $set('subdepartment_id', null))
+                    ->searchable()
+                    ->preload();
+                break;
+
+            case 'select_educational_program':
+                $component = Select::make($name)
+                    ->options(function (Get $get) {
+                        if ($get('../../ticket_group') === 'SGC') {
+                            return \App\Models\EducationalProgram::whereHas('academicDivision', fn ($q) => $q->where('campus_id', $get('temp_campus_id')))->pluck('name', 'id');
+                        }
+                        return \App\Models\EducationalProgram::where('academic_division_id', $get('academic_division_id'))->pluck('name', 'id');
+                    })
+                    ->visible(function (Get $get) {
+                        if ($get('../../ticket_group') === 'SGC') {
+                            return $get('user_type') === 'estudiante' && $get('temp_campus_id');
+                        }
+                        return $get('reported_person_type') === 'academico' && $get('academic_division_id');
+                    })
+                    ->required(function (Get $get) {
+                        if ($get('../../ticket_group') === 'SGC') {
+                            return $get('user_type') === 'estudiante';
+                        }
+                        return $get('reported_person_type') === 'academico';
+                    })
+                    ->live()
+                    ->afterStateUpdated(function ($state, $set) {
+                        if ($state) {
+                            $program = \App\Models\EducationalProgram::find($state);
+                            $set('academic_division_id', $program?->academic_division_id);
+                        } else {
+                            $set('academic_division_id', null);
+                        }
+                    })
+                    ->searchable()
+                    ->preload();
+                break;
+
+            default:
+                return null;
+        }
+
+        if ($component) {
+            $component->label($field->label);
+
+            if ($field->helper_text) {
+                $component->helperText($field->helper_text);
+            }
+
+            if ($field->placeholder && method_exists($component, 'placeholder')) {
+                $component->placeholder($field->placeholder);
+            }
+
+            if ($field->is_required) {
+                $formName = $field->step->form->name;
+                $component->required(fn(Get $get) => $get('../../ticket_group') === $formName);
+            }
+
+            // Visibilidades condicionales específicas heredadas
+            if ($field->name === 'witnesses_details') {
+                $component->hidden(fn(Get $get) => $get('witnesses') !== 'si')->columnSpanFull();
+            }
+            if ($field->name === 'communicated_to') {
+                $component->visible(fn(Get $get) => $get('has_communicated'));
+            }
+            if ($field->name === 'communication_results') {
+                $component->visible(fn(Get $get) => $get('has_communicated'))->columnSpanFull();
+            }
+        }
+
+        return $component;
     }
 }

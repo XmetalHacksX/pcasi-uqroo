@@ -6,9 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use App\Models\Traits\HasDynamicAttributes;
+
 class TicketGenderDetail extends Model
 {
-    use HasFactory;
+    use HasFactory, HasDynamicAttributes;
 
     /**
      * The attributes that are mass assignable.

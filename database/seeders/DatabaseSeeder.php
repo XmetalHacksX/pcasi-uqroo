@@ -30,6 +30,9 @@ class DatabaseSeeder extends Seeder
         }
 
         // 4. Llamar a tu seeder con los datos reales de la UQROO
-        $this->call(UqrooCatalogSeeder::class);
+        $this->call([
+            UqrooCatalogSeeder::class,
+            DynamicFormSeeder::class,
+        ]);
     }
 }

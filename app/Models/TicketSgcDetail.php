@@ -6,9 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use App\Models\Traits\HasDynamicAttributes;
+
 class TicketSgcDetail extends Model
 {
-    use HasFactory;
+    use HasFactory, HasDynamicAttributes;
 
     protected $fillable = [
         'ticket_id',
