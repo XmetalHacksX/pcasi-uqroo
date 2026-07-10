@@ -2,7 +2,8 @@
 
 namespace Database\Factories;
 
-use App\Models\;
+use App\Models\Campus;
+use App\Models\Building;
 use App\Models\Location;
 use App\Models\Ticket;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -16,8 +17,8 @@ class TicketInfraDetailFactory extends Factory
     {
         return [
             'ticket_id' => Ticket::factory(),
-            'campus_id' => ::factory(),
-            'building_id' => ::factory(),
+            'campus_id' => Campus::factory(),
+            'building_id' => Building::factory(),
             'location_id' => Location::factory(),
             'issue_type' => fake()->word(),
             'missing_supplies' => '{}',

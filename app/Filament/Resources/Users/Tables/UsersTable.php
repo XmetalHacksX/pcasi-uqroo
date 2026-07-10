@@ -9,6 +9,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Tables\Filters\SelectFilter; // Nuevo import para el filtro
+use App\Enums\RolesEnum;
 
 class UsersTable
 {
@@ -20,7 +21,7 @@ class UsersTable
                     ->searchable(),
 
                 TextColumn::make('email')
-                    ->label('Email address')
+                    ->label('Correo electrónico')
                     ->searchable(),
 
                 TextColumn::make('azure_id')
@@ -35,10 +36,13 @@ class UsersTable
                     ->label('Roles')
                     ->badge() // Los muestra como etiquetas
                     ->color(fn(string $state): string => match ($state) {
-                        'admin' => 'danger',
-                        'usuario' => 'success',
-                        'soporte' => 'info',
-                        default => 'gray',
+                        RolesEnum::SUPER_ADMIN->value              => 'danger',
+                        RolesEnum::ADMIN->value                    => 'warning',
+                        RolesEnum::USUARIO->value                  => 'success',
+                        RolesEnum::RESPONSABLE_SGC->value          => 'info',
+                        RolesEnum::RESPONSABLE_GENERO->value       => 'primary',
+                        RolesEnum::RESPONSABLE_INFRAESTRUCTURA->value => 'gray',
+                        default                    => 'gray',
                     })
                     ->searchable()
                     ->separator(','),

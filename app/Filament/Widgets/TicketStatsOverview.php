@@ -2,6 +2,8 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\RolesEnum;
+use App\Enums\StatusEnum;
 use App\Models\Ticket;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -9,26 +11,52 @@ use Illuminate\Database\Eloquent\Builder;
 
 class TicketStatsOverview extends BaseWidget
 {
-    // Función central para filtrar los datos según el rol
+    /**
+     * Construye la query base filtrada por rol Y por campus asignado.
+     */
     protected function getBaseQuery(): Builder
     {
-        $user = auth()->user();
+        $user  = auth()->user();
         $query = Ticket::query();
 
-        if ($user->hasAnyRole(['super_admin', 'admin'])) {
+        // Admin y Super Admin ven todo
+        if ($user->hasAnyRole([RolesEnum::SUPER_ADMIN->value, RolesEnum::ADMIN->value])) {
             return $query;
         }
-        if ($user->hasRole('responsable_sgc')) {
-            return $query->where('ticket_group', 'SGC');
-        }
-        if ($user->hasRole('responsable_genero')) {
-            return $query->where('ticket_group', 'GENERO');
-        }
-        if ($user->hasRole('responsable_infraestructura')) {
-            return $query->where('ticket_group', 'INFRAESTRUCTURA');
+
+        // Obtenemos los campus asignados al responsable
+        $campusIds = $user->campuses->pluck('id');
+
+        if ($user->hasRole(RolesEnum::RESPONSABLE_INFRAESTRUCTURA->value)) {
+            return $query
+                ->where('ticket_group', 'INFRAESTRUCTURA')
+                ->whereHas('ticketInfraDetail', fn($q) => $q->whereIn('campus_id', $campusIds));
         }
 
-        // Si no es admin ni encargado, es usuario normal
+        if ($user->hasRole(RolesEnum::RESPONSABLE_SGC->value)) {
+            return $query
+                ->where('ticket_group', 'SGC')
+                ->whereHas('ticketSgcDetail', function ($q) use ($campusIds) {
+                    $q->where(function ($sub) use ($campusIds) {
+                        $sub->whereHas('department', fn($d) => $d->whereIn('campus_id', $campusIds))
+                            ->orWhereHas('academicDivision', fn($d) => $d->whereIn('campus_id', $campusIds));
+                    });
+                });
+        }
+
+        if ($user->hasRole(RolesEnum::RESPONSABLE_GENERO->value)) {
+            return $query
+                ->where('ticket_group', 'GENERO')
+                ->whereHas('ticketGenderDetail', function ($q) use ($campusIds) {
+                    $q->where(function ($sub) use ($campusIds) {
+                        $sub->whereHas('department', fn($d) => $d->whereIn('campus_id', $campusIds))
+                            ->orWhereHas('academicDivision', fn($d) => $d->whereIn('campus_id', $campusIds))
+                            ->orWhereIn('campus_id', $campusIds);
+                    });
+                });
+        }
+
+        // Usuario normal: solo sus propios reportes
         return $query->where('reporter_id', $user->id);
     }
 
@@ -36,10 +64,13 @@ class TicketStatsOverview extends BaseWidget
     {
         $user = auth()->user();
 
-        // Cambiamos el título de la primera tarjeta dependiendo de quién la vea
-        $tituloTotal = $user->hasAnyRole(['super_admin', 'admin', 'responsable_sgc', 'responsable_genero', 'responsable_infraestructura'])
-            ? 'Total de Tickets'
-            : 'Mis Reportes';
+        $tituloTotal = $user->hasAnyRole([
+            RolesEnum::SUPER_ADMIN->value,
+            RolesEnum::ADMIN->value,
+            RolesEnum::RESPONSABLE_SGC->value,
+            RolesEnum::RESPONSABLE_GENERO->value,
+            RolesEnum::RESPONSABLE_INFRAESTRUCTURA->value,
+        ]) ? 'Total de Tickets' : 'Mis Reportes';
 
         return [
             Stat::make($tituloTotal, $this->getBaseQuery()->count())
@@ -47,12 +78,12 @@ class TicketStatsOverview extends BaseWidget
                 ->descriptionIcon('heroicon-m-rectangle-stack')
                 ->color('primary'),
 
-            Stat::make('Requieren Atención', $this->getBaseQuery()->whereIn('status_id', [1, 2, 3])->count())
+            Stat::make('Requieren Atención', $this->getBaseQuery()->whereIn('status_id', StatusEnum::openIds())->count())
                 ->description('Nuevos, Asignados o En Proceso')
                 ->descriptionIcon('heroicon-m-clock')
                 ->color('warning'),
 
-            Stat::make('Casos Cerrados', $this->getBaseQuery()->whereIn('status_id', [4, 5])->count())
+            Stat::make('Casos Cerrados', $this->getBaseQuery()->whereIn('status_id', StatusEnum::closedIds())->count())
                 ->description('Resueltos o Cancelados')
                 ->descriptionIcon('heroicon-m-check-badge')
                 ->color('success'),

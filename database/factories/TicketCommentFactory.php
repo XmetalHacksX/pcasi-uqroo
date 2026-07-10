@@ -2,7 +2,7 @@
 
 namespace Database\Factories;
 
-use App\Models\;
+use App\Models\User;
 use App\Models\Ticket;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -15,7 +15,7 @@ class TicketCommentFactory extends Factory
     {
         return [
             'ticket_id' => Ticket::factory(),
-            'user_id' => ::factory(),
+            'user_id' => User::factory(),
             'body' => fake()->text(),
             'is_internal' => fake()->boolean(),
         ];

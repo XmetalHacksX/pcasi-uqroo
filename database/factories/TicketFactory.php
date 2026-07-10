@@ -2,7 +2,7 @@
 
 namespace Database\Factories;
 
-use App\Models\;
+use App\Models\Status;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -17,8 +17,8 @@ class TicketFactory extends Factory
             'folio' => fake()->word(),
             'reporter_id' => User::factory(),
             'ticket_group' => fake()->randomElement(["SGC","GENERO","INFRAESTRUCTURA"]),
-            'status_id' => ::factory(),
-            'user_id' => User::factory(),
+            'status_id' => Status::factory(),
+            'assigned_to_id' => null,
         ];
     }
 }

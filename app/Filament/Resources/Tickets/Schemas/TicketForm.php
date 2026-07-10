@@ -22,6 +22,7 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
+use App\Enums\StatusEnum;
 
 class TicketForm
 {
@@ -29,9 +30,8 @@ class TicketForm
     {
         return $schema
             ->components([
-                Hidden::make('status_id')->default(1)->mutateDehydratedStateUsing(fn () => 1),
-                Hidden::make('reporter_id')->default(fn() => auth()->id())->mutateDehydratedStateUsing(fn () => auth()->id()),
-                Hidden::make('folio')->default(fn() => 'TKT-' . strtoupper(Str::random(5))),
+                Hidden::make('status_id')->default(fn() => StatusEnum::NUEVO->id())->dehydrated(fn (string $operation) => $operation === 'create'),
+                Hidden::make('reporter_id')->default(fn() => auth()->id())->dehydrated(fn (string $operation) => $operation === 'create'),
 
                 Wizard::make([
 
@@ -66,9 +66,9 @@ class TicketForm
                         ->schema([
                             Select::make('ticket_group')
                                 ->options([
-                                    'SGC'             => '📋  Queja, Sugerencia o Felicitación',
-                                    'GENERO'          => '🛡️  Reporte de Violencia de Género / Discriminación',
-                                    'INFRAESTRUCTURA' => '🏗️  Reporte de Infraestructura',
+                                    'SGC'             => 'Queja, Sugerencia o Felicitación (SGC)',
+                                    'GENERO'          => 'Reporte de Violencia de Género o Discriminación',
+                                    'INFRAESTRUCTURA' => 'Reporte de Infraestructura',
                                 ])
                                 ->required()
                                 ->live()
@@ -95,33 +95,40 @@ class TicketForm
                                         ->label('Nombre de la persona involucrada (Opcional)')
                                         ->columnSpanFull(),
 
-                                    // 1. Preguntamos de qué lado de la universidad es
-                                    Select::make('area_type')
-                                        ->label('Tipo de Área')
+                                    // 1. Selector de Tipo de Usuario
+                                    Select::make('user_type')
+                                        ->label('Tipo de Usuario')
                                         ->options([
-                                            'administrativa' => 'Área Administrativa (Direcciones Generales)',
-                                            'academica' => 'Área Académica (Divisiones)',
+                                            'administrativo' => 'Personal Administrativo',
+                                            'academico'      => 'Personal Académico',
+                                            'estudiante'     => 'Estudiante',
                                         ])
                                         ->required(fn(Get $get) => $get('../../ticket_group') === 'SGC')
                                         ->live()
-                                        ->afterStateUpdated(fn($set) => $set('temp_campus_id', null) & $set('department_id', null) & $set('subdepartment_id', null) & $set('academic_division_id', null)),
+                                        ->afterStateUpdated(fn($set) => $set('temp_campus_id', null) & $set('department_id', null) & $set('subdepartment_id', null) & $set('academic_division_id', null) & $set('educational_program_id', null)),
 
                                     // 2. Elegimos el campus para filtrar correctamente
                                     Select::make('temp_campus_id')
                                         ->label('Campus')
-                                        ->options(fn() => \App\Models\Campus::pluck('name', 'id'))
-                                        ->visible(fn(Get $get) => filled($get('area_type')))
-                                        ->required(fn(Get $get) => filled($get('area_type')))
+                                        ->options(function () {
+                                            $user = auth()->user();
+                                            if ($user && $user->campuses()->exists()) {
+                                                return $user->campuses->pluck('name', 'id');
+                                            }
+                                            return \App\Models\Campus::pluck('name', 'id');
+                                        })
+                                        ->visible(fn(Get $get) => filled($get('user_type')))
+                                        ->required(fn(Get $get) => filled($get('user_type')))
                                         ->live()
                                         ->dehydrated(false) // No se guarda en BD, solo sirve para filtrar
-                                        ->afterStateUpdated(fn($set) => $set('department_id', null) & $set('academic_division_id', null)),
+                                        ->afterStateUpdated(fn($set) => $set('department_id', null) & $set('subdepartment_id', null) & $set('academic_division_id', null) & $set('educational_program_id', null)),
 
                                     // --- FLUJO ADMINISTRATIVO ---
                                     Select::make('department_id')
                                         ->label('Dirección General')
-                                        ->options(fn(Get $get) => \App\Models\Department::where('campus_id', $get('temp_campus_id'))->pluck('name', 'id'))
-                                        ->visible(fn(Get $get) => $get('area_type') === 'administrativa' && $get('temp_campus_id'))
-                                        ->required(fn(Get $get) => $get('area_type') === 'administrativa')
+                                        ->options(fn(Get $get) => \App\Models\Department::where('id', '<=', 11)->pluck('name', 'id'))
+                                        ->visible(fn(Get $get) => $get('user_type') === 'administrativo' && $get('temp_campus_id'))
+                                        ->required(fn(Get $get) => $get('user_type') === 'administrativo')
                                         ->live()
                                         ->afterStateUpdated(fn($set) => $set('subdepartment_id', null))
                                         ->searchable()
@@ -130,7 +137,8 @@ class TicketForm
                                     Select::make('subdepartment_id')
                                         ->label('Departamento / Oficina')
                                         ->options(fn(Get $get) => \App\Models\Subdepartment::where('department_id', $get('department_id'))->pluck('name', 'id'))
-                                        ->visible(fn(Get $get) => $get('area_type') === 'administrativa' && $get('department_id'))
+                                        ->visible(fn(Get $get) => $get('user_type') === 'administrativo' && $get('department_id'))
+                                        ->required(fn(Get $get) => $get('user_type') === 'administrativo')
                                         ->searchable()
                                         ->preload(),
 
@@ -138,8 +146,42 @@ class TicketForm
                                     Select::make('academic_division_id')
                                         ->label('División Académica')
                                         ->options(fn(Get $get) => \App\Models\AcademicDivision::where('campus_id', $get('temp_campus_id'))->pluck('name', 'id'))
-                                        ->visible(fn(Get $get) => $get('area_type') === 'academica' && $get('temp_campus_id'))
-                                        ->required(fn(Get $get) => $get('area_type') === 'academica')
+                                        ->visible(fn(Get $get) => $get('user_type') === 'academico' && $get('temp_campus_id'))
+                                        ->required(fn(Get $get) => $get('user_type') === 'academico')
+                                        ->live()
+                                        ->afterStateUpdated(fn($set) => $set('subdepartment_id', null))
+                                        ->searchable()
+                                        ->preload(),
+
+                                    Select::make('subdepartment_id')
+                                        ->label('Departamento Académico')
+                                        ->options(function (Get $get) {
+                                            $division = \App\Models\AcademicDivision::find($get('academic_division_id'));
+                                            if (!$division) return [];
+                                            $dept = \App\Models\Department::where('name', $division->name)->where('campus_id', $division->campus_id)->first();
+                                            if (!$dept) return [];
+                                            return \App\Models\Subdepartment::where('department_id', $dept->id)->pluck('name', 'id');
+                                        })
+                                        ->visible(fn(Get $get) => $get('user_type') === 'academico' && $get('academic_division_id'))
+                                        ->required(fn(Get $get) => $get('user_type') === 'academico')
+                                        ->searchable()
+                                        ->preload(),
+
+                                    // --- FLUJO ESTUDIANTE ---
+                                    Select::make('educational_program_id')
+                                        ->label('Carrera / Programa Educativo')
+                                        ->options(fn(Get $get) => \App\Models\EducationalProgram::whereHas('academicDivision', fn ($q) => $q->where('campus_id', $get('temp_campus_id')))->pluck('name', 'id'))
+                                        ->visible(fn(Get $get) => $get('user_type') === 'estudiante' && $get('temp_campus_id'))
+                                        ->required(fn(Get $get) => $get('user_type') === 'estudiante')
+                                        ->live()
+                                        ->afterStateUpdated(function ($state, $set) {
+                                            if ($state) {
+                                                $program = \App\Models\EducationalProgram::find($state);
+                                                $set('academic_division_id', $program?->academic_division_id);
+                                            } else {
+                                                $set('academic_division_id', null);
+                                            }
+                                        })
                                         ->searchable()
                                         ->preload(),
 
@@ -195,18 +237,24 @@ class TicketForm
                                     // ─── EL DESGLOSE DINÁMICO EMPIEZA AQUÍ ───
 
                                     // 1. Campus Base (Para ambos flujos)
-                                    Select::make('temp_campus_id')
+                                    Select::make('campus_id')
                                         ->label('Campus de Adscripción')
-                                        ->options(fn() => \App\Models\Campus::pluck('name', 'id'))
+                                        ->options(function () {
+                                            $user = auth()->user();
+                                            if ($user && $user->campuses()->exists()) {
+                                                return $user->campuses->pluck('name', 'id');
+                                            }
+                                            return \App\Models\Campus::pluck('name', 'id');
+                                        })
                                         ->required()
                                         ->live()
-                                        ->dehydrated(false)
+                                        ->dehydrated(fn (Get $get) => $get('reported_person_type') === 'Externo')
                                         ->afterStateUpdated(fn($set) => $set('academic_division_id', null) & $set('department_id', null)),
 
                                     // 2. Flujo Administrativo: Campus -> Área/Dirección -> Oficina
                                     Select::make('department_id')
                                         ->label('Área / Unidad Académica / Dirección General')
-                                        ->options(fn(Get $get) => \App\Models\Department::where('campus_id', $get('temp_campus_id'))->pluck('name', 'id'))
+                                        ->options(fn(Get $get) => \App\Models\Department::where('campus_id', $get('campus_id'))->pluck('name', 'id'))
                                         ->visible(fn(Get $get) => $get('reported_person_type') === 'administrativo')
                                         ->required(fn(Get $get) => $get('reported_person_type') === 'administrativo')
                                         ->searchable()
@@ -224,7 +272,7 @@ class TicketForm
                                     // 3. Flujo Académico: Campus -> División -> Carrera
                                     Select::make('academic_division_id')
                                         ->label('División Académica de Adscripción')
-                                        ->options(fn(Get $get) => \App\Models\AcademicDivision::where('campus_id', $get('temp_campus_id'))->pluck('name', 'id'))
+                                        ->options(fn(Get $get) => \App\Models\AcademicDivision::where('campus_id', $get('campus_id'))->pluck('name', 'id'))
                                         ->visible(fn(Get $get) => $get('reported_person_type') === 'academico')
                                         ->required(fn(Get $get) => $get('reported_person_type') === 'academico')
                                         ->live(),
@@ -316,7 +364,12 @@ class TicketForm
 
                                     // 1️⃣ Campus — muestra todos, activa la cadena
                                     Select::make('campus_id')
-                                        ->relationship('campus', 'name')
+                                        ->relationship('campus', 'name', function (\Illuminate\Database\Eloquent\Builder $query) {
+                                            $user = auth()->user();
+                                            if ($user && $user->campuses()->exists()) {
+                                                $query->whereIn('campuses.id', $user->campuses->pluck('id'));
+                                            }
+                                        })
                                         ->required(fn(Get $get) => $get('../../ticket_group') === 'INFRAESTRUCTURA')
                                         ->live() // ✅ dispara la actualización de edificio
                                         ->afterStateUpdated(fn(callable $set) => $set('building_id', null) & $set('location_id', null))

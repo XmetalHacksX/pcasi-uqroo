@@ -32,6 +32,16 @@ class ViewTicket extends ViewRecord
                 ->requiresConfirmation()
                 ->modalHeading('¿Enviar comprobante PDF por correo?')
                 ->modalDescription('Se despachará al correo del usuario que levantó este reporte.')
+                ->visible(
+                    fn() =>
+                    auth()->user()->hasAnyRole([
+                        \App\Enums\RolesEnum::SUPER_ADMIN->value,
+                        \App\Enums\RolesEnum::ADMIN->value,
+                        \App\Enums\RolesEnum::RESPONSABLE_SGC->value,
+                        \App\Enums\RolesEnum::RESPONSABLE_GENERO->value,
+                        \App\Enums\RolesEnum::RESPONSABLE_INFRAESTRUCTURA->value
+                    ])
+                )
                 ->action(function () {
                     $record = $this->record;
                     if ($record->reporter?->email) {

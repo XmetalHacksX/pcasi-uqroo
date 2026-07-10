@@ -21,6 +21,9 @@ class TicketResolvedMail extends Mailable
     {
         return new Envelope(
             subject: 'Su Ticket ' . $this->ticket->folio . ' ha sido RESUELTO',
+            replyTo: [
+                new \Illuminate\Mail\Mailables\Address(config('services.uqroo.te_escucha_email'), 'Mesa de Ayuda UAEQROO'),
+            ],
         );
     }
 

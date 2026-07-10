@@ -6,80 +6,160 @@ namespace App\Policies;
 
 use Illuminate\Foundation\Auth\User as AuthUser;
 use App\Models\Ticket;
+use App\Enums\RolesEnum;
 use Illuminate\Auth\Access\HandlesAuthorization;
-use App\Enums\RolesEnum; // <-- Importamos tu Enum de roles
 
 class TicketPolicy
 {
     use HandlesAuthorization;
-
-    /**
-     * INTERCEPTOR: Si el usuario es Super Admin, siempre devuelve true.
-     * Esto hace que ignore todas las reglas de abajo y tenga acceso total a todo.
-     */
-    public function before(AuthUser $authUser, string $ability): ?bool
-    {
-        if ($authUser->hasRole(RolesEnum::SUPER_ADMIN->value)) {
-            return true;
-        }
-
-        return null;
-    }
-
+    
     public function viewAny(AuthUser $authUser): bool
     {
-        // Devuelve true para que el menú "Mesa de Ayuda" aparezca para todos.
-        // El filtrado real de qué ve cada rol ya está en TicketResource::getEloquentQuery()
-        return true;
+        return $authUser->hasAnyRole([
+            RolesEnum::SUPER_ADMIN->value,
+            RolesEnum::ADMIN->value,
+            RolesEnum::RESPONSABLE_SGC->value,
+            RolesEnum::RESPONSABLE_GENERO->value,
+            RolesEnum::RESPONSABLE_INFRAESTRUCTURA->value
+        ]) || $authUser->can('ViewAny:Ticket');
     }
 
     public function view(AuthUser $authUser, Ticket $ticket): bool
     {
-        return true; 
+        return $this->userHasAccessToTicket($authUser, $ticket);
     }
 
     public function create(AuthUser $authUser): bool
     {
-        return true; 
+        return true;
     }
 
     public function update(AuthUser $authUser, Ticket $ticket): bool
     {
-        return true; 
+        return $this->userHasAccessToTicket($authUser, $ticket);
+    }
+
+    /**
+     * Valida de manera estricta si un usuario tiene acceso a un ticket
+     * basado en su rol y en los campus que tiene asignados.
+     */
+    private function userHasAccessToTicket(AuthUser $authUser, Ticket $ticket): bool
+    {
+        // 1. Super Admin y Admin tienen acceso a absolutamente todo
+        if ($authUser->hasAnyRole([RolesEnum::SUPER_ADMIN->value, RolesEnum::ADMIN->value])) {
+            return true;
+        }
+
+        // 2. El reportador (usuario común) tiene acceso a su propio ticket
+        if ($authUser->id === $ticket->reporter_id) {
+            return true;
+        }
+
+        // Obtener los IDs de los campus asignados al responsable
+        $campusIds = $authUser->campuses->pluck('id')->toArray();
+
+        // 3. Validación estricta por grupo de ticket
+        if ($ticket->ticket_group === 'GENERO') {
+            // Solo el responsable de género de los campus asignados puede verlo
+            if (!$authUser->hasRole(RolesEnum::RESPONSABLE_GENERO->value)) {
+                return false;
+            }
+
+            $detail = $ticket->ticketGenderDetail;
+            if (!$detail) {
+                return false;
+            }
+
+            return in_array($detail->campus_id, $campusIds)
+                || ($detail->department && in_array($detail->department->campus_id, $campusIds))
+                || ($detail->academicDivision && in_array($detail->academicDivision->campus_id, $campusIds));
+        }
+
+        if ($ticket->ticket_group === 'INFRAESTRUCTURA') {
+            // Solo el responsable de infraestructura de los campus asignados puede verlo
+            if (!$authUser->hasRole(RolesEnum::RESPONSABLE_INFRAESTRUCTURA->value)) {
+                return false;
+            }
+
+            $detail = $ticket->ticketInfraDetail;
+            if (!$detail) {
+                return false;
+            }
+
+            return in_array($detail->campus_id, $campusIds);
+        }
+
+        if ($ticket->ticket_group === 'SGC') {
+            // Solo el responsable de SGC de los campus asignados puede verlo
+            if (!$authUser->hasRole(RolesEnum::RESPONSABLE_SGC->value)) {
+                return false;
+            }
+
+            $detail = $ticket->ticketSgcDetail;
+            if (!$detail) {
+                return false;
+            }
+
+            return ($detail->department && in_array($detail->department->campus_id, $campusIds))
+                || ($detail->academicDivision && in_array($detail->academicDivision->campus_id, $campusIds));
+        }
+
+        return false;
     }
 
     public function delete(AuthUser $authUser, Ticket $ticket): bool
     {
-        return $authUser->can('delete_ticket');
+        return $authUser->hasAnyRole([
+            RolesEnum::SUPER_ADMIN->value,
+            RolesEnum::ADMIN->value
+        ]) || $authUser->can('Delete:Ticket');
     }
 
     public function restore(AuthUser $authUser, Ticket $ticket): bool
     {
-        return $authUser->can('restore_ticket');
+        return $authUser->hasAnyRole([
+            RolesEnum::SUPER_ADMIN->value,
+            RolesEnum::ADMIN->value
+        ]) || $authUser->can('Restore:Ticket');
     }
 
     public function forceDelete(AuthUser $authUser, Ticket $ticket): bool
     {
-        return $authUser->can('force_delete_ticket');
+        return $authUser->hasAnyRole([
+            RolesEnum::SUPER_ADMIN->value,
+            RolesEnum::ADMIN->value
+        ]) || $authUser->can('ForceDelete:Ticket');
     }
 
     public function forceDeleteAny(AuthUser $authUser): bool
     {
-        return $authUser->can('force_delete_any_ticket');
+        return $authUser->hasAnyRole([
+            RolesEnum::SUPER_ADMIN->value,
+            RolesEnum::ADMIN->value
+        ]) || $authUser->can('ForceDeleteAny:Ticket');
     }
 
     public function restoreAny(AuthUser $authUser): bool
     {
-        return $authUser->can('restore_any_ticket');
+        return $authUser->hasAnyRole([
+            RolesEnum::SUPER_ADMIN->value,
+            RolesEnum::ADMIN->value
+        ]) || $authUser->can('RestoreAny:Ticket');
     }
 
     public function replicate(AuthUser $authUser, Ticket $ticket): bool
     {
-        return $authUser->can('replicate_ticket');
+        return $authUser->hasAnyRole([
+            RolesEnum::SUPER_ADMIN->value,
+            RolesEnum::ADMIN->value
+        ]) || $authUser->can('Replicate:Ticket');
     }
 
     public function reorder(AuthUser $authUser): bool
     {
-        return $authUser->can('reorder_ticket');
+        return $authUser->hasAnyRole([
+            RolesEnum::SUPER_ADMIN->value,
+            RolesEnum::ADMIN->value
+        ]) || $authUser->can('Reorder:Ticket');
     }
 }

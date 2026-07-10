@@ -2,57 +2,80 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\RolesEnum;
+use App\Enums\StatusEnum;
 use App\Models\Ticket;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Database\Eloquent\Builder;
 
 class TicketsStatusChart extends ChartWidget
 {
-    protected static ?int $sort = 2; // Para que aparezca debajo de las tarjetas
+    protected static ?int $sort = 2;
 
-    // Esta función es la que OCULTA la gráfica a los usuarios comunes
     public static function canView(): bool
     {
         return auth()->user()->hasAnyRole([
-            'super_admin',
-            'admin',
-            'responsable_sgc',
-            'responsable_genero',
-            'responsable_infraestructura'
+            RolesEnum::SUPER_ADMIN->value,
+            RolesEnum::ADMIN->value,
+            RolesEnum::RESPONSABLE_SGC->value,
+            RolesEnum::RESPONSABLE_GENERO->value,
+            RolesEnum::RESPONSABLE_INFRAESTRUCTURA->value,
         ]);
     }
 
-    // Título que cambia según el nivel de acceso
     public function getHeading(): string
     {
-        // El auth()->check() salva a la consola de colapsar
-        return auth()->check() && auth()->user()->hasAnyRole(['super_admin', 'admin'])
+        return auth()->check() && auth()->user()->hasAnyRole([RolesEnum::SUPER_ADMIN->value, RolesEnum::ADMIN->value])
             ? 'Resumen Global de Estatus (UQROO)'
             : 'Resumen de Estatus (Mi Área)';
     }
 
     protected function getType(): string
     {
-        return 'bar'; // Gráfica de barras
+        return 'bar';
     }
 
-    // Filtramos igual que en las tarjetas
+    /**
+     * Query base filtrada por rol Y por campus asignado (igual que TicketResource).
+     */
     protected function getBaseQuery(): Builder
     {
-        $user = auth()->user();
+        $user  = auth()->user();
         $query = Ticket::query();
 
-        if ($user->hasAnyRole(['super_admin', 'admin'])) {
+        if ($user->hasAnyRole([RolesEnum::SUPER_ADMIN->value, RolesEnum::ADMIN->value])) {
             return $query;
         }
-        if ($user->hasRole('responsable_sgc')) {
-            return $query->where('ticket_group', 'SGC');
+
+        $campusIds = $user->campuses->pluck('id');
+
+        if ($user->hasRole(RolesEnum::RESPONSABLE_INFRAESTRUCTURA->value)) {
+            return $query
+                ->where('ticket_group', 'INFRAESTRUCTURA')
+                ->whereHas('ticketInfraDetail', fn($q) => $q->whereIn('campus_id', $campusIds));
         }
-        if ($user->hasRole('responsable_genero')) {
-            return $query->where('ticket_group', 'GENERO');
+
+        if ($user->hasRole(RolesEnum::RESPONSABLE_SGC->value)) {
+            return $query
+                ->where('ticket_group', 'SGC')
+                ->whereHas('ticketSgcDetail', function ($q) use ($campusIds) {
+                    $q->where(function ($sub) use ($campusIds) {
+                        $sub->whereHas('department', fn($d) => $d->whereIn('campus_id', $campusIds))
+                            ->orWhereHas('academicDivision', fn($d) => $d->whereIn('campus_id', $campusIds));
+                    });
+                });
         }
-        if ($user->hasRole('responsable_infraestructura')) {
-            return $query->where('ticket_group', 'INFRAESTRUCTURA');
+
+        if ($user->hasRole(RolesEnum::RESPONSABLE_GENERO->value)) {
+            return $query
+                ->where('ticket_group', 'GENERO')
+                ->whereHas('ticketGenderDetail', function ($q) use ($campusIds) {
+                    $q->where(function ($sub) use ($campusIds) {
+                        $sub->whereHas('department', fn($d) => $d->whereIn('campus_id', $campusIds))
+                            ->orWhereHas('academicDivision', fn($d) => $d->whereIn('campus_id', $campusIds))
+                            ->orWhereIn('campus_id', $campusIds);
+                    });
+                });
         }
 
         return $query;
@@ -66,15 +89,15 @@ class TicketsStatusChart extends ChartWidget
             'datasets' => [
                 [
                     'label' => 'Cantidad de Tickets',
-                    'data' => [
-                        (clone $query)->where('status_id', 1)->count(), // Nuevos
-                        (clone $query)->whereIn('status_id', [2, 3])->count(), // En Atención
-                        (clone $query)->whereIn('status_id', [4, 5])->count(), // Cerrados
+                    'data'  => [
+                        (clone $query)->where('status_id', StatusEnum::NUEVO->id())->count(),
+                        (clone $query)->whereIn('status_id', [StatusEnum::ASIGNADO->id(), StatusEnum::EN_PROCESO->id()])->count(),
+                        (clone $query)->whereIn('status_id', StatusEnum::closedIds())->count(),
                     ],
                     'backgroundColor' => [
-                        '#ef4444', // Rojo (Nuevos)
+                        '#ef4444', // Rojo    (Nuevos)
                         '#eab308', // Amarillo (En Atención)
-                        '#22c55e', // Verde (Cerrados)
+                        '#22c55e', // Verde   (Cerrados)
                     ],
                 ],
             ],

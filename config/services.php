@@ -42,4 +42,8 @@ return [
         'tenant' => env('AZURE_TENANT_ID'),
     ],
 
+    'uqroo' => [
+        'te_escucha_email' => env('UQROO_TE_ESCUCHA_EMAIL', 'uqroo-teescucha@uqroo.edu.mx'),
+    ],
+
 ];

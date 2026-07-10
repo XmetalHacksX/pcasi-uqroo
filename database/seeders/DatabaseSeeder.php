@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
+use App\Enums\RolesEnum;
 
 class DatabaseSeeder extends Seeder
 {
@@ -21,11 +22,11 @@ class DatabaseSeeder extends Seeder
         );
 
         // 2. CREAR EL ROL ANTES DE ASIGNARLO (¡Esta es la solución!)
-        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => RolesEnum::SUPER_ADMIN->value, 'guard_name' => 'web']);
 
         // 3. Ahora sí, asignarle el rol
-        if (!$admin->hasRole('super_admin')) {
-            $admin->assignRole('super_admin');
+        if (!$admin->hasRole(RolesEnum::SUPER_ADMIN->value)) {
+            $admin->assignRole(RolesEnum::SUPER_ADMIN->value);
         }
 
         // 4. Llamar a tu seeder con los datos reales de la UQROO

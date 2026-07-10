@@ -2,14 +2,15 @@
 
 namespace App\Filament\Resources\Tickets\Tables;
 
+use App\Enums\RolesEnum;
+use App\Enums\StatusEnum;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Filament\Actions\Action;
-use App\Enums\RolesEnum;
 
 class TicketsTable
 {
@@ -68,6 +69,7 @@ class TicketsTable
                         is_null($record->assigned_to_id) &&
                             auth()->user()->hasAnyRole([
                                 RolesEnum::SUPER_ADMIN->value, 
+                                RolesEnum::ADMIN->value, 
                                 RolesEnum::RESPONSABLE_SGC->value, 
                                 RolesEnum::RESPONSABLE_GENERO->value, 
                                 RolesEnum::RESPONSABLE_INFRAESTRUCTURA->value
@@ -76,7 +78,7 @@ class TicketsTable
                     ->action(function ($record) {
                         $record->update([
                             'assigned_to_id' => auth()->id(),
-                            'status_id' => 2, // ID 2 es "Asignado"
+                            'status_id'      => StatusEnum::ASIGNADO->id(),
                         ]);
                     }),
 
@@ -91,12 +93,12 @@ class TicketsTable
                     ->visible(
                         fn($record) =>
                         !is_null($record->assigned_to_id) &&
-                            ($record->assigned_to_id === auth()->id() || auth()->user()->hasRole(RolesEnum::SUPER_ADMIN->value)) && 
-                            $record->status_id === 2 // Solo si está "Asignado"
+                            ($record->assigned_to_id === auth()->id() || auth()->user()->hasAnyRole([RolesEnum::SUPER_ADMIN->value, RolesEnum::ADMIN->value])) &&
+                            $record->status_id === StatusEnum::ASIGNADO->id()
                     )
                     ->action(function ($record) {
                         $record->update([
-                            'status_id' => 3, // ID 3 es "En Proceso"
+                            'status_id' => StatusEnum::EN_PROCESO->id(),
                         ]);
                     }),
 
@@ -111,12 +113,12 @@ class TicketsTable
                     ->visible(
                         fn($record) =>
                         !is_null($record->assigned_to_id) &&
-                            ($record->assigned_to_id === auth()->id() || auth()->user()->hasRole(RolesEnum::SUPER_ADMIN->value)) && 
-                            in_array($record->status_id, [2, 3]) // Puede resolverlo si está Asignado(2) o En Proceso(3)
+                            ($record->assigned_to_id === auth()->id() || auth()->user()->hasAnyRole([RolesEnum::SUPER_ADMIN->value, RolesEnum::ADMIN->value])) &&
+                            in_array($record->status_id, [StatusEnum::ASIGNADO->id(), StatusEnum::EN_PROCESO->id()])
                     )
                     ->action(function ($record) {
                         $record->update([
-                            'status_id' => 4, // ID 4 es "Resuelto"
+                            'status_id' => StatusEnum::RESUELTO->id(),
                         ]);
                     }),
 
@@ -125,6 +127,16 @@ class TicketsTable
                     ->label('PDF')
                     ->icon('heroicon-m-document-arrow-down')
                     ->color('gray')
+                    ->visible(
+                        fn() =>
+                        auth()->user()->hasAnyRole([
+                            RolesEnum::SUPER_ADMIN->value,
+                            RolesEnum::ADMIN->value,
+                            RolesEnum::RESPONSABLE_SGC->value,
+                            RolesEnum::RESPONSABLE_GENERO->value,
+                            RolesEnum::RESPONSABLE_INFRAESTRUCTURA->value
+                        ])
+                    )
                     ->action(function ($record) {
                         return response()->streamDownload(function () use ($record) {
                             echo \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.ticket', ['ticket' => $record])->output();
@@ -139,6 +151,16 @@ class TicketsTable
                     ->requiresConfirmation()
                     ->modalHeading('¿Enviar comprobante PDF por correo?')
                     ->modalDescription('Se generará un PDF de inmediato y se despachará al correo de la víctima / reportador de este folio.')
+                    ->visible(
+                        fn() =>
+                        auth()->user()->hasAnyRole([
+                            RolesEnum::SUPER_ADMIN->value,
+                            RolesEnum::ADMIN->value,
+                            RolesEnum::RESPONSABLE_SGC->value,
+                            RolesEnum::RESPONSABLE_GENERO->value,
+                            RolesEnum::RESPONSABLE_INFRAESTRUCTURA->value
+                        ])
+                    )
                     ->action(function ($record) {
                         if ($record->reporter?->email) {
                             \Illuminate\Support\Facades\Mail::to($record->reporter->email)

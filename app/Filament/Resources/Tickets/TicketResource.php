@@ -34,29 +34,59 @@ class TicketResource extends Resource
 
     /**
      * FILTRO DE SEGURIDAD:
-     * Aquí es donde restringimos que el usuario común solo vea sus tickets.
+     * Restringe la visibilidad de tickets por rol Y por campus asignado al responsable.
      */
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
-        $user = auth()->user();
+        $query = parent::getEloquentQuery()->with(['reporter', 'status']);
+        $user  = auth()->user();
 
-        // 1. Super Admin y Admin ven todo
+        // 1. Super Admin y Admin ven absolutamente todo
         if ($user->hasAnyRole([RolesEnum::SUPER_ADMIN->value, RolesEnum::ADMIN->value])) {
             return $query;
         }
 
-        // 2. Responsables de Área (usando los nombres exactos de tu DB)
-        $groups = [];
-        if ($user->hasRole(RolesEnum::RESPONSABLE_SGC->value)) $groups[] = 'SGC';
-        if ($user->hasRole(RolesEnum::RESPONSABLE_GENERO->value)) $groups[] = 'GENERO';
-        if ($user->hasRole(RolesEnum::RESPONSABLE_INFRAESTRUCTURA->value)) $groups[] = 'INFRAESTRUCTURA';
+        // Obtenemos los campus asignados al responsable (tabla campus_user)
+        $campusIds = $user->campuses->pluck('id');
 
-        if (!empty($groups)) {
-            return $query->whereIn('ticket_group', $groups);
+        // 2. Responsable de Infraestructura:
+        //    Solo ve tickets de Infraestructura cuyo campus_id está en sus campus asignados.
+        if ($user->hasRole(RolesEnum::RESPONSABLE_INFRAESTRUCTURA->value)) {
+            return $query
+                ->where('ticket_group', 'INFRAESTRUCTURA')
+                ->whereHas('ticketInfraDetail', fn($q) => $q->whereIn('campus_id', $campusIds));
         }
 
-        // 3. Usuario común (solo ve sus propios reportes)
+        // 3. Responsable SGC:
+        //    Ve tickets SGC donde el departamento o la división académica pertenece a sus campus.
+        if ($user->hasRole(RolesEnum::RESPONSABLE_SGC->value)) {
+            return $query
+                ->where('ticket_group', 'SGC')
+                ->whereHas('ticketSgcDetail', function ($q) use ($campusIds) {
+                    $q->where(function ($sub) use ($campusIds) {
+                        // Vía área administrativa: department -> campus_id
+                        $sub->whereHas('department', fn($d) => $d->whereIn('campus_id', $campusIds))
+                            // Vía área académica: academic_division -> campus_id
+                            ->orWhereHas('academicDivision', fn($d) => $d->whereIn('campus_id', $campusIds));
+                    });
+                });
+        }
+
+        // 4. Responsable de Género:
+        //    Ve tickets de Género donde el departamento o la división académica pertenece a sus campus.
+        if ($user->hasRole(RolesEnum::RESPONSABLE_GENERO->value)) {
+            return $query
+                ->where('ticket_group', 'GENERO')
+                ->whereHas('ticketGenderDetail', function ($q) use ($campusIds) {
+                    $q->where(function ($sub) use ($campusIds) {
+                        $sub->whereHas('department', fn($d) => $d->whereIn('campus_id', $campusIds))
+                            ->orWhereHas('academicDivision', fn($d) => $d->whereIn('campus_id', $campusIds))
+                            ->orWhereIn('campus_id', $campusIds);
+                    });
+                });
+        }
+
+        // 5. Usuario común: solo ve sus propios reportes
         return $query->where('reporter_id', $user->id);
     }
 

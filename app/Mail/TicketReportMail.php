@@ -23,6 +23,9 @@ class TicketReportMail extends Mailable
     {
         return new Envelope(
             subject: 'Confirmación y Reporte de Ticket ' . $this->ticket->folio,
+            replyTo: [
+                new \Illuminate\Mail\Mailables\Address(config('services.uqroo.te_escucha_email'), 'Mesa de Ayuda UAEQROO'),
+            ],
         );
     }
 

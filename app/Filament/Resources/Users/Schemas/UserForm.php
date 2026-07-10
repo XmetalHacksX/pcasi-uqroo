@@ -18,7 +18,7 @@ class UserForm
                     ->maxLength(255),
 
                 TextInput::make('email')
-                    ->label('Email address')
+                    ->label('Correo electrónico')
                     ->email()
                     ->required()
                     ->unique(ignoreRecord: true),
@@ -36,6 +36,15 @@ class UserForm
                     ->multiple() // Esto ya permite seleccionar varios y los muestra como bloques
                     ->preload()
                     ->searchable(),
+
+                    // 🔥 AQUÍ AGREGAMOS LA ASIGNACIÓN DE CAMPUS 🔥
+                Select::make('campuses')
+                    ->relationship('campuses', 'name')
+                    ->multiple()
+                    ->preload()
+                    ->searchable()
+                    ->label('Campus Asignados')
+                    ->helperText('Solo para Responsables. Déjalo en blanco para usuarios que únicamente reportan.'),
 
                 Toggle::make('is_active')
                     ->label('¿Está activo?')

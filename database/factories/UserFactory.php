@@ -14,7 +14,7 @@ class UserFactory extends Factory
         return [
             'name' => fake()->name(),
             'email' => fake()->safeEmail(),
-            'azure_id' => fake()->word(),
+            'azure_id' => fake()->unique()->uuid(),
             'user_type' => fake()->word(),
             'is_active' => fake()->boolean(),
             'remember_token' => fake()->uuid(),

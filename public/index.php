@@ -1,5 +1,9 @@
 <?php
 
+if (!defined('OCI_DEFAULT')) {
+    define('OCI_DEFAULT', 0);
+}
+
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 

@@ -12,11 +12,13 @@ class TicketSgcDetail extends Model
 
     protected $fillable = [
         'ticket_id',
+        'user_type',
         'reported_person_name',
         'area_type',
         'department_id',
         'subdepartment_id',
         'academic_division_id',
+        'educational_program_id',
         'classification',
         'description',
     ];
@@ -26,6 +28,7 @@ class TicketSgcDetail extends Model
         return [
             'id' => 'integer',
             'ticket_id' => 'integer',
+            'educational_program_id' => 'integer',
         ];
     }
 
@@ -49,4 +52,10 @@ class TicketSgcDetail extends Model
     {
         return $this->belongsTo(AcademicDivision::class);
     }
+
+    public function educationalProgram(): BelongsTo
+    {
+        return $this->belongsTo(EducationalProgram::class);
+    }
 }
+

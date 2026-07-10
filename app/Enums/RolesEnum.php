@@ -9,4 +9,5 @@ enum RolesEnum: string
     case RESPONSABLE_SGC = 'responsable_sgc';
     case RESPONSABLE_GENERO = 'responsable_genero';
     case RESPONSABLE_INFRAESTRUCTURA = 'responsable_infraestructura';
+    case USUARIO = 'usuario';
 }

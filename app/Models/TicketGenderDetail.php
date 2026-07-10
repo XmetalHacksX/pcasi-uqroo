@@ -36,6 +36,7 @@ class TicketGenderDetail extends Model
         'building_id',
         'location_id',
         'reported_person_details', // El cargo opcional que agregamos
+        'campus_id',
     ];
 
     /**
@@ -51,6 +52,7 @@ class TicketGenderDetail extends Model
             'has_evidence' => 'boolean',
             'needs_psychological_support' => 'boolean',
             'communicated_to' => 'array',
+            'campus_id' => 'integer',
         ];
     }
 
@@ -60,6 +62,11 @@ class TicketGenderDetail extends Model
     }
 
     // ─── RUTAS PARA QUE FILAMENT ENCUENTRE LOS NOMBRES ───
+
+    public function campus(): BelongsTo
+    {
+        return $this->belongsTo(Campus::class);
+    }
 
     public function department(): BelongsTo
     {

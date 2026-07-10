@@ -16,8 +16,18 @@ class CreateTicket extends CreateRecord
     {
         $ticket = $this->record;
         
+        $teEscuchaEmail = config('services.uqroo.te_escucha_email');
+
+        // Enviamos al reportador si tiene correo y con copia oculta a la institución
         if ($ticket->reporter?->email) {
-            Mail::to($ticket->reporter->email)->send(new TicketReportMail($ticket));
+            Mail::to($ticket->reporter->email)
+                ->bcc($teEscuchaEmail)
+                ->send(new TicketReportMail($ticket));
+        } else {
+            // Si el reportador no tiene correo, de todos modos enviamos la notificación al correo institucional
+            if ($teEscuchaEmail) {
+                Mail::to($teEscuchaEmail)->send(new TicketReportMail($ticket));
+            }
         }
     }
 }

@@ -21,8 +21,7 @@ return new class extends Migration
 
             // FK hacia statuses — asegúrate de que esa tabla exista antes
             $table->foreignId('status_id')
-                ->constrained('statuses')
-                ->restrictOnDelete();
+                ->constrained('statuses');
 
             $table->timestamps();
         });

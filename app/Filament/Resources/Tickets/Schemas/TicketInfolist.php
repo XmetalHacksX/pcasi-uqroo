@@ -70,17 +70,22 @@ class TicketInfolist
                                 ->label('Persona involucrada')
                                 ->default('No especificada'),
 
-                            TextEntry::make('ticketSgcDetail.area_type')
-                                ->label('Tipo de Área')
+                            TextEntry::make('ticketSgcDetail.user_type')
+                                ->label('Tipo de Usuario')
                                 ->badge()
                                 ->color('gray')
-                                ->formatStateUsing(fn(?string $state): string => $state === 'administrativa' ? 'Administrativa' : 'Académica'),
+                                ->formatStateUsing(fn(?string $state): string => match($state) {
+                                    'administrativo' => 'Personal Administrativo',
+                                    'academico'      => 'Personal Académico',
+                                    'estudiante'     => 'Estudiante',
+                                    default          => 'No especificado',
+                                }),
                         ]),
 
                         // --- NUEVO BLOQUE: ADSCRIPCIÓN DINÁMICA SGC ---
                         // Flujo Administrativo
                         Grid::make(3)
-                            ->visible(fn($record) => $record->ticketSgcDetail?->area_type === 'administrativa')
+                            ->visible(fn($record) => $record->ticketSgcDetail?->user_type === 'administrativo')
                             ->schema([
                                 TextEntry::make('ticketSgcDetail.department.campus.name')
                                     ->label('Campus'),
@@ -92,13 +97,26 @@ class TicketInfolist
                             ]),
 
                         // Flujo Académico
-                        Grid::make(2)
-                            ->visible(fn($record) => $record->ticketSgcDetail?->area_type === 'academica')
+                        Grid::make(3)
+                            ->visible(fn($record) => $record->ticketSgcDetail?->user_type === 'academico')
                             ->schema([
                                 TextEntry::make('ticketSgcDetail.academicDivision.campus.name')
                                     ->label('Campus'),
                                 TextEntry::make('ticketSgcDetail.academicDivision.name')
                                     ->label('División Académica'),
+                                TextEntry::make('ticketSgcDetail.subdepartment.name')
+                                    ->label('Departamento Académico')
+                                    ->default('No especificado'),
+                            ]),
+
+                        // Flujo Estudiante
+                        Grid::make(2)
+                            ->visible(fn($record) => $record->ticketSgcDetail?->user_type === 'estudiante')
+                            ->schema([
+                                TextEntry::make('ticketSgcDetail.academicDivision.campus.name')
+                                    ->label('Campus'),
+                                TextEntry::make('ticketSgcDetail.educationalProgram.name')
+                                    ->label('Carrera / Programa Educativo'),
                             ]),
                         // ----------------------------------------------
 
@@ -182,6 +200,14 @@ class TicketInfolist
                                     ->label('División Académica'),
                                 TextEntry::make('ticketGenderDetail.educationalProgram.name')
                                     ->label('Programa Educativo'),
+                            ]),
+
+                        // Flujo Externo
+                        Grid::make(1)
+                            ->visible(fn($record) => $record->ticketGenderDetail?->reported_person_type === 'Externo')
+                            ->schema([
+                                TextEntry::make('ticketGenderDetail.campus.name')
+                                    ->label('Campus'),
                             ]),
 
                         // Dato Extra Institucional (Aplica a ambos si lo llenan)
