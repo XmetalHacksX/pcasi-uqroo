@@ -7,7 +7,7 @@ use App\Filament\Resources\DynamicFormResource\Pages\EditDynamicForm;
 use App\Filament\Resources\DynamicFormResource\Pages\ListDynamicForms;
 use App\Models\DynamicForm;
 use BackedEnum;
-use Filament\Forms\Components\Grid;
+use Filament\Schemas\Components\Grid;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
