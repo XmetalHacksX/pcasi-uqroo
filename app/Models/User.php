@@ -3,6 +3,8 @@
 namespace App\Models;
 
 // 🔥 IMPORTANTE: Cambiamos Model por Authenticatable
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable // 🔥 HEREDAMOS DE AUTHENTICATABLE
+class User extends Authenticatable implements FilamentUser // 🔥 HEREDAMOS DE AUTHENTICATABLE
 {
     use HasFactory, Notifiable, HasRoles; // 🔥 AGREGAMOS NOTIFIABLE
 
@@ -36,6 +38,11 @@ class User extends Authenticatable // 🔥 HEREDAMOS DE AUTHENTICATABLE
             'is_active' => 'boolean',
             'password' => 'hashed',
         ];
+    }
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return (bool) $this->is_active;
     }
 
     // --- TUS RELACIONES ---

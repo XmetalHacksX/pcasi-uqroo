@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
+use App\Enums\RolesEnum;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 use SocialiteProviders\Microsoft\MicrosoftExtendSocialite;
 use DutchCodingCompany\FilamentSocialite\Events\Registered;
@@ -24,6 +26,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::before(function ($user, $ability) {
+            return $user->hasRole(RolesEnum::SUPER_ADMIN->value) ? true : null;
+        });
+
         Event::listen(
             SocialiteWasCalled::class,
             [MicrosoftExtendSocialite::class, 'handle']
