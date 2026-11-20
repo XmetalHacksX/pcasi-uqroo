@@ -39,6 +39,33 @@
     background-color: rgba(255, 255, 255, 0.1) !important;
 }
 
+/* 5. Modo OSCURO: Sidebar blanco con textos/íconos en verde institucional */
+.dark .fi-sidebar,
+.dark .fi-sidebar-header {
+    background-color: #ffffff !important;
+}
+
+.dark .fi-sidebar-item-label,
+.dark .fi-sidebar-item-icon,
+.dark .fi-sidebar-group-label,
+.dark .fi-sidebar-group-collapse-button {
+    color: var(--color-uqroo-verde) !important;
+}
+
+.dark .fi-sidebar-item.fi-active .fi-sidebar-item-btn {
+    background-color: var(--color-uqroo-amarillo) !important;
+}
+
+.dark .fi-sidebar-item.fi-active .fi-sidebar-item-btn .fi-sidebar-item-label,
+.dark .fi-sidebar-item.fi-active .fi-sidebar-item-btn .fi-sidebar-item-icon {
+    color: var(--color-uqroo-verde) !important;
+    font-weight: 800 !important;
+}
+
+.dark .fi-sidebar-item-btn:hover {
+    background-color: rgba(5, 76, 49, 0.08) !important;
+}
+
 /* --- CORRECCIÓN LOGO DINÁMICO (Negro en PC Claro, Blanco en Móvil/Oscuro) --- */
 
 /* Color por defecto para pantallas GRANDES (Escritorio) */
@@ -50,12 +77,12 @@
     transition: color 0.3s ease;
 }
 
-/* Ajuste para modo OSCURO en PC: Todo el texto del header debe ser BLANCO */
+/* Ajuste para modo OSCURO en PC: texto del header en verde sobre fondo blanco */
 .dark .fi-sidebar-header .fi-logo,
 .dark .fi-sidebar-header .fi-brand-name,
 .dark .fi-sidebar-header div,
 .dark .fi-sidebar-header span {
-    color: #ffffff !important;
+    color: var(--color-uqroo-verde) !important;
 }
 
 /* Cambio a BLANCO para pantallas CHICAS (Móvil/Tablet), tanto en claro como oscuro */
