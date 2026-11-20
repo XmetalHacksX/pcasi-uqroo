@@ -12,6 +12,11 @@ class CreateTicket extends CreateRecord
 {
     protected static string $resource = TicketResource::class;
 
+    protected function getFormActions(): array
+    {
+        return [];
+    }
+
     protected function afterCreate(): void
     {
         $ticket = $this->record;

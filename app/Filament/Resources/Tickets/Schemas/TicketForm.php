@@ -106,7 +106,17 @@ class TicketForm
 
                 ])
                     ->skippable(false)
-                    ->submitAction(new HtmlString(Blade::render(<<<BLADE
+                    ->cancelAction(new HtmlString(Blade::render(<<<'BLADE'
+                    <x-filament::button
+                        tag="a"
+                        :href="\App\Filament\Resources\Tickets\TicketResource::getUrl('index')"
+                        color="gray"
+                        size="sm"
+                    >
+                        Cancelar
+                    </x-filament::button>
+                BLADE)))
+                    ->submitAction(new HtmlString(Blade::render(<<<'BLADE'
                     <x-filament::button type="submit" size="sm">
                         Enviar Reporte
                     </x-filament::button>
