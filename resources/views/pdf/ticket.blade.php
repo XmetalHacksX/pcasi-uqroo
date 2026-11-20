@@ -75,7 +75,13 @@
 <body>
 
     <div class="header">
-        <img src="{{ public_path('images/Escudo UAEQROO Oficial-01.png') }}" class="logo" alt="Logo UAEQROO">
+        @php
+            $logoPath = public_path('images/Escudo UAEQROO Oficial-01.png');
+            $logoBase64 = is_file($logoPath) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath)) : null;
+        @endphp
+        @if($logoBase64)
+            <img src="{{ $logoBase64 }}" class="logo" alt="Logo UAEQROO">
+        @endif
         <div class="title">Sistema Institucional de Mesa de Ayuda</div>
         <div class="subtitle">Comprobante de Reporte</div>
     </div>
